@@ -700,13 +700,19 @@ contract ERC20 is Context, IERC20 {
     ) internal virtual {}
 }
 
-contract MyToken1 is ERC20("MyToken1", "MTK1") {
+contract MyToken1 is ERC20("MyToken1", "A") {
     function mint(uint256 _amount) external {
         _mint(msg.sender, _amount);
     }
 }
 
-contract MyToken2 is ERC20("MyToken2", "MTK2") {
+contract MyToken2 is ERC20("MyToken2", "B") {
+    function mint(uint256 _amount) external {
+        _mint(msg.sender, _amount);
+    }
+}
+
+contract MyToken3 is ERC20("MyToken3", "C") {
     function mint(uint256 _amount) external {
         _mint(msg.sender, _amount);
     }
