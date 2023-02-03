@@ -382,6 +382,10 @@ describe("Create Pool and then Flashswap", async () => {
     //     console.log(tx);
     // });
     it("Flash Swap", async () => {
+        await token1.approve(flashswap.address, 1000000);
+        await token2.approve(flashswap.address, 1000000);
+        await token3.approve(flashswap.address, 1000000);
+
         await flashswap.testFlashSwap(token1.address, borrowAmount);
         const flashswapBalance = await token1.balanceOf(flashswap.address);
         console.log("Flashswap Balance from testing ",flashswapBalance);

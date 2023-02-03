@@ -288,6 +288,10 @@ contract Flashswap is IUniswapV2Callee {
     address private TokenC;
     address private UniswapV2Factory;
     address private UniswapV2Router;
+    uint256 private beforeFlashBalA;
+    uint256 private beforeFlashBalB;
+    uint256 private beforeFlashBalC;
+    // uint256 private afterFlashBal;
 
     constructor (address _factory, address _router, address _tokenA, address _tokenB, address _tokenC) public {
         UniswapV2Factory = _factory;
@@ -327,7 +331,7 @@ contract Flashswap is IUniswapV2Callee {
                 TokenA,
                 TokenC,
                 100000,
-                100000,
+                200000,
                 1,
                 1,
                 address(this),
@@ -338,7 +342,7 @@ contract Flashswap is IUniswapV2Callee {
             .addLiquidity(
                 TokenB,
                 TokenC,
-                100000,
+                200000,
                 100000,
                 1,
                 1,
@@ -349,22 +353,37 @@ contract Flashswap is IUniswapV2Callee {
         // check the pair contract for token borrow and TokenA exists
         address pair = IUniswapV2Factory(UniswapV2Factory).getPair(
             _tokenBorrow,
-            TokenA
+            TokenB
         );
         {
         require(pair != address(0), "!pair");
         // right now we dont know tokenborrow belongs to which token
         address token0 = IUniswapV2Pair(pair).token0();
         address token1 = IUniswapV2Pair(pair).token1();
-
+        console.log("token0 :- ",token0);
+        console.log("token1 :- ",token1);
+        console.log("1.6");
         // as a result, either amount0out will be equal to 0 or amount1out will be
         uint256 amount0Out = _tokenBorrow == token0 ? _amount : 0;
         uint256 amount1Out = _tokenBorrow == token1 ? _amount : 0;
+        console.log("1.7");
+        console.log("amount0Out :- ",amount0Out);
+        console.log("amount1Out :- ",amount1Out);
 
         // need to pass some data to trigger uniswapv2call
         bytes memory data = abi.encode(_tokenBorrow, _amount, msg.sender);
+        console.log("1.8");
+        console.log("TokenA before flashswap :- ",IERC20(_tokenBorrow).balanceOf(address(this)));
+        console.log("TokenB before Swapping :- ",IERC20(TokenB).balanceOf(address(this)));
+        console.log("TokenC before flashswap :- ",IERC20(TokenC).balanceOf(address(this)));
+        beforeFlashBalA = IERC20(_tokenBorrow).balanceOf(address(this));
+        beforeFlashBalB = IERC20(TokenB).balanceOf(address(this));
+        beforeFlashBalC = IERC20(TokenC).balanceOf(address(this));
         // last parameter tells whether its a normal swap or a flash swap
         IUniswapV2Pair(pair).swap(amount0Out, amount1Out, address(this), data);
+        console.log("1.9");
+
+        
         // adding data triggers a flashloan
         }
     }
@@ -389,30 +408,45 @@ contract Flashswap is IUniswapV2Callee {
         require(_sender == address(this), "Not Sender");
 
         (address tokenBorrow, uint amount, address caller) = abi.decode(_data, (address, uint, address));
-        console.log("Token receive after flashswap :- ",IERC20(tokenBorrow).balanceOf(address(this)));
+        uint amountReceived = (IERC20(tokenBorrow).balanceOf(address(this))) - beforeFlashBalA;
+        console.log("TokenA receive after flashswap :- ",amountReceived);
 
         //swap borrowedamount A for tokenC from A/C
         address[] memory path;
         path = new address[](2);
         path[0] = TokenA;
         path[1] = TokenC;
-        uint[] memory amountsC = IUniswapV2Router(UniswapV2Router).swapExactTokensForTokens(amount, amount*2, path, address(this), 1692742340);
+        uint[] memory amountsC = IUniswapV2Router(UniswapV2Router).swapExactTokensForTokens(amountReceived, amountReceived, path, address(this), 1692742340);
         uint amountC = amountsC[1];
-        console.log("Token C receive after swapping :- ",IERC20(TokenC).balanceOf(address(this)));
+        console.log("amountsC[0][1] after exchange",amountsC[0],amountC);
+        console.log("Token C receive after swapping :- ",(IERC20(TokenC).balanceOf(address(this)))-beforeFlashBalC);
 
         //swap tokenC for tokenB from B/C
-        path[0] = TokenB;
-        path[1] = TokenC;
-        uint[] memory amountsB = IUniswapV2Router(UniswapV2Router).swapExactTokensForTokens(amountC, amountC*2, path, address(this), 1692742340); 
-        uint amountB = amountsB[0];
+        path[0] = TokenC;
+        path[1] = TokenB;
+        uint[] memory amountsB = IUniswapV2Router(UniswapV2Router).swapExactTokensForTokens(amountC, amountC, path, address(this), 1692742340); 
+        uint amountB = amountsB[1];
+        console.log("amountsB[0][1] after exchange",amountsB[0],amountB);
         console.log("Token B receive after swapping :- ",IERC20(TokenB).balanceOf(address(this)));
+////the commented block below tries to reentrancy 
+// {
+//         //swap tokenB for tokenA from B/A
+//         path[0] = TokenB;
+//         path[1] = TokenA;
+//         uint[] memory A = IUniswapV2Router(UniswapV2Router).getAmountsOut(amountB, path);
+//         console.log("Max of out TokenA :- ", A[0]);
+//         console.log("Min of out TokenA :- ", A[1]);
+//         uint[] memory amountsA = IUniswapV2Router(UniswapV2Router).swapExactTokensForTokens(amountB, A[1], path, address(this), 1692742340); 
+//         uint amountA = amountsA[1];
+//         console.log("amountsA[0][1] after exchange",amountsA[0],amountA);
+//         console.log("Token A receive after swapping :- ",IERC20(TokenA).balanceOf(address(this)));
+// }
 
         // about 0.3% fees, +1 to round up
         uint fee = ((amount * 3) / 997) + 1;
-        uint amountToRepay = amountB + fee;
-
-        console.log("Token receive after flashswap :- ",IERC20(TokenB).balanceOf(address(this)));
-        IERC20(TokenB).transferFrom(caller, address(this), fee);
-        IERC20(TokenB).transfer(pair, amountToRepay);
+        uint amountToRepay = amount + fee;
+        require(tokenBorrow == TokenA, "token borrow not equal to TokenA");
+        // IERC20(TokenA).transferFrom(caller, address(this), fee);
+        IERC20(TokenA).transfer(pair, amountToRepay);
     }
 }
