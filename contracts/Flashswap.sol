@@ -355,6 +355,7 @@ contract Flashswap is IUniswapV2Callee {
             _tokenBorrow,
             TokenB
         );
+        console.log("Pool A/B Pair address :- ",pair);
         {
         require(pair != address(0), "!pair");
         // right now we dont know tokenborrow belongs to which token
@@ -403,6 +404,7 @@ contract Flashswap is IUniswapV2Callee {
         address token1 = IUniswapV2Pair(msg.sender).token1();
         // call uniswapv2factory to getpair 
         address pair = IUniswapV2Factory(UniswapV2Factory).getPair(token0, token1);
+        console.log("Pool A/B Pair address :- ",pair);
         require(msg.sender == pair, "Not Pair");
         // check sender holds the address who initiated the flash loans
         require(_sender == address(this), "Not Sender");
@@ -427,7 +429,7 @@ contract Flashswap is IUniswapV2Callee {
         uint[] memory amountsB = IUniswapV2Router(UniswapV2Router).swapExactTokensForTokens(amountC, amountC, path, address(this), 1692742340); 
         uint amountB = amountsB[1];
         console.log("amountsB[0][1] after exchange",amountsB[0],amountB);
-        console.log("Token B receive after swapping :- ",IERC20(TokenB).balanceOf(address(this)));
+        // console.log("Token B receive after swapping :- ",IERC20(TokenB).balanceOf(address(this)));
 ////the commented block below tries to reentrancy 
 // {
 //         //swap tokenB for tokenA from B/A
@@ -446,7 +448,8 @@ contract Flashswap is IUniswapV2Callee {
         uint fee = ((amount * 3) / 997) + 1;
         uint amountToRepay = amount + fee;
         require(tokenBorrow == TokenA, "token borrow not equal to TokenA");
-        // IERC20(TokenA).transferFrom(caller, address(this), fee);
-        IERC20(TokenA).transfer(pair, amountToRepay);
+        // IERC20(TokenB).transferFrom(caller, address(this), fee);
+        // IERC20(TokenB).transfer(pair, amountToRepay);
+        IERC20(TokenB).transfer(pair, amountToRepay);
     }
 }
