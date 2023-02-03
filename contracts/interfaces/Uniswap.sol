@@ -9,6 +9,9 @@ interface IUniswapV2Router {
     external
     view
     returns (uint[] memory amounts);
+    // function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut);
+    // function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn);
+    function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts);
 
   function swapExactTokensForTokens(
     uint amountIn,
